@@ -3,7 +3,6 @@
 
 require 'rugged'
 require 'json'
-require 'colorize'
 require 'thor'
 require 'fileutils'
 
