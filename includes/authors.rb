@@ -2,10 +2,6 @@
 
 class AuthorAnalysis < GritAnalysis
 
-	def initialize(repo)
-		@repo = repo
-	end
-
 	def run
 		walker = Rugged::Walker.new(@repo)
 		walker.sorting(Rugged::SORT_DATE)
