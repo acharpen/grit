@@ -21,21 +21,41 @@ class GritCli < Thor
 			say_status('[pending]', "processing #{source}", :yellow)
 
 			if 'new'.eql?(state(source)) then
-				Rugged::Repository::clone_at(source, source_folder)
-				@log[source] = Hash.new
-				@log[source]['state'] = 'cloned'
+				@log[source] = {} if @log[source] == nil
+				@log[source]['state'] = 'new'
+				error = false
+				begin
+					Rugged::Repository::clone_at(source, source_folder)
+				rescue => e
+					error = true
+					message = "Error when cloning source. Exception: #{e.class.name}. Message: #{e.to_s}"
+					@log[source]['error'] = message
+					say_status('[error]', "error cloning source", :red)
+				end
+				if !error then
+					@log[source]['state'] = 'cloned'
+					say_status('[info]', "source cloned", :blue)
+				end
 				save_log
-				say_status('[info]', "repository cloned", :blue)
 			end
 
 			if 'cloned'.eql?(state(source)) then
 				globs = {}
+				error = false
 				@config['analyses'].each{ |analysis|
 					repo = Rugged::Repository.new(source_folder)
-					obj = Object::const_get(analysis).new(source, repo, @config['options'], globs)
-					obj.run
+					obj = Object::const_get(analysis)
+					begin
+						obj.new(source, repo, @config['options'], globs)
+						obj.run
+					rescue => e
+						message = "Error running #{analysis}. Exception: #{e.class.name}. Message: #{e.to_s}"
+						@log[source]['error'] = message
+						error = true
+						say_status('[error]', "error running #{analysis}", :red)
+					end
 				}
-				@log[source]['state'] = 'finished'
+				@log[source]['state'] = 'finished' if !error
 				save_log
 				say_status('[info]', "analyses performed", :blue)
 			end
@@ -49,9 +69,10 @@ class GritCli < Thor
 	desc 'sources', "List all sources"
 	def sources
 		@config['sources'].each{ |source|
-			say_status("[#{state(source)}]", source, :blue)
+			color = (error?(source) && :red) || :blue
+			say_status("[#{state(source)}]", source, color)
 		}
-		say_status("[done]", "listed #{@config['sources'].size} sources")
+		say_status("[done]", "listed #{@config['sources'].size} sources including #{@config['sources'].collect{ |source| error?(source) }.size} errors")
 	end
 
 	desc 'analyses', "List all analyses"
@@ -144,10 +165,10 @@ class GritCli < Thor
 		end
 
 		def error?(source)
-			if @log['source'] == nil then
+			if @log[source] == nil then
 				return false
 			else
-				if @log['source']['error'] != nil
+				if @log[source]['error'] != nil
 					return true
 				else
 					return false
