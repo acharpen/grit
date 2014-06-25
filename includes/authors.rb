@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-class AuthorsAnalysis < GritAnalysis
+class AuthorAnalysis < GritAnalysis
 
 	def initialize(repo)
 		@repo = repo
@@ -10,7 +10,7 @@ class AuthorsAnalysis < GritAnalysis
 		walker = Rugged::Walker.new(@repo)
 		walker.sorting(Rugged::SORT_DATE)
 		walker.push(@repo.last_commit)
-		authors = walker.collect{ |c| c.author[:name].force_encoding('utf-8') }.uniq
+		authors = walker.collect{ |c| c.author[:name] }.uniq
 		puts "Authors : #{authors}"
 	end
 end
