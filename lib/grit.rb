@@ -5,6 +5,7 @@ require 'rugged'
 require 'json'
 require 'thor'
 require 'fileutils'
+require 'mongo'
 
 class GritCli < Thor
 	include Thor::Actions
@@ -28,9 +29,10 @@ class GritCli < Thor
 			end
 
 			if 'cloned'.eql?(state(source)) then
+				globs = {}
 				@config['analyses'].each{ |analysis|
 					repo = Rugged::Repository.new(source_folder)
-					obj = Object::const_get(analysis).new(repo)
+					obj = Object::const_get(analysis).new(source, repo, @config['options'], globs)
 					obj.run
 				}
 				@log[source]['state'] = 'finished'
@@ -44,12 +46,20 @@ class GritCli < Thor
 		}
 	end
 
-	desc 'list', "List all sources"
-	def list
+	desc 'sources', "List all sources"
+	def sources
 		@config['sources'].each{ |source|
 			say_status("[#{state(source)}]", source, :blue)
 		}
 		say_status("[done]", "listed #{@config['sources'].size} sources")
+	end
+
+	desc 'analyses', "List all analyses"
+	def analyses
+		@config['analyses'].each{ |analysis|
+			say_status('[info]', analysis, :blue)
+		}
+		say_status("[done]", "listed #{@config['analyses'].size} analyses")
 	end
 
 	desc 'reset [SOURCES*]', "Reset sources"
@@ -190,8 +200,11 @@ end
 
 class GritAnalysis
 
-	def initialize(repo)
+	def initialize(source, repo, options, globs)
+		@source = source
 		@repo = repo
+		@options = options
+		@globs = globs
 	end
 
 	def run
