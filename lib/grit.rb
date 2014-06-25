@@ -6,7 +6,7 @@ require 'json'
 require 'thor'
 require 'fileutils'
 
-class Grit < Thor
+class GritCli < Thor
 	include Thor::Actions
 
 	GRITRC = '.gritrc'
@@ -93,6 +93,29 @@ class Grit < Thor
 		say_status('[done]', "folder initialized")
 	end
 
+	desc "add_analysis [ANALYSIS*]", "Add analyses"
+	def add_analysis(*analyses)
+		analyses.each{ |analysis|
+			if class_exist?(analysis) then
+				if !@config['analyses'].include?(analysis) then
+					@config['analyses'] << analysis
+					say_status('[done]', "added analysis #{analysis}")
+				else
+					say_status('[warning]', "analysis #{analysis} already included", :red)
+				end
+			else
+				say_status('[error]', "analysis #{analysis} not found", :red)
+			end
+		}
+		save_config
+	end
+
+	desc "del_analysis [ANALYSIS*]", "Delete analyses"
+	def del_analysis(*analyses)
+		@config['analyses'].delete_if{ |analysis| analyses.include?(analysis) }
+		save_config
+	end
+
 	def initialize(*args)
 		super
 		cmd = args[2][:current_command].name
@@ -147,6 +170,13 @@ class Grit < Thor
 			return source_folder
 		end
 
+		def class_exist?(class_name)
+			obj = Object::const_get(class_name)
+			return obj.is_a?(Class)
+		rescue NameError
+			return false
+		end
+
 		def check_grit
 			if !File.exist?(GRITRC) then
 				say_status('[error]', "this is not a grit directory", :red)
@@ -172,6 +202,6 @@ end
 script = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
 folder = File.dirname(script)
 
-Dir.glob("#{folder}/includes/*.rb").each{ |addon| load(addon) }
+Dir.glob("#{folder}/../includes/*.rb").each{ |addon| load(addon) }
 
-Grit.start(ARGV)
+GritCli.start(ARGV)
