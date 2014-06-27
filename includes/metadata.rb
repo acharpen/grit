@@ -3,7 +3,7 @@ require 'mongo'
 
 class MetadataAnalysis < GritAnalysis
 
-	def initialize(source, repo, options, glob)
+	def initialize(*args)
 		super
 		client = Mongo::MongoClient.new
 		db = client[@options['mongo']['database']]
