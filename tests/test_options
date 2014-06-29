@@ -1,0 +1,6 @@
+{
+	"mongo" : {
+		"database" : "tmp"
+	},
+	"output" : "tmp"
+}
