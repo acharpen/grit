@@ -9,7 +9,7 @@
 /test/version_tmp/
 /tmp/
 
-.tags
+tags
 
 ## Specific to RubyMotion:
 .dat*
