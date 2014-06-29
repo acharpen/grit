@@ -69,7 +69,7 @@ module GritCli
 		def error?(source)
 			!log[source].nil? && !log[source]['error'].nil?
 		end
-		
+
 		def add_error(source, e)
 			log[source]['error'] = { 'error' => e.class.name, 'message' => e.to_s, 'backtrace' => e.backtrace }
 		end
@@ -176,7 +176,7 @@ module GritCli
 			say_status('[done]', "removed #{deleted.size} addons, #{addons.size - deleted.size} errors")
 			grit_info.save_config
 		end
-		
+
 	end
 
 	class GritAnalyses < Thor
@@ -240,8 +240,16 @@ module GritCli
 			say_status('[done]', "folder initialized")
 		end
 
+		desc "opts [FILE]", "Set grit folder options"
+		def opts(file)
+			options = JSON.parse(File.read(file))
+			config['options'] = options
+			grit_info.save_config
+		end
+
 		desc 'process', "Process grit folder"
 		def process
+			# Loading addons
 			addons = {}
 			config['addons'].each{ |addon|
 				begin
@@ -253,10 +261,13 @@ module GritCli
 				end
 			}
 			say_status('[info]', "loaded addons", :blue)
+
+			#Processing sources
 			config['sources'].each{ |source|
 				folder = grit_info.source_folder(source)
 				say_status('[pending]', "processing #{source}", :yellow)
 
+				# Process source in state new
 				if 'new'.eql?(grit_info.state(source))
 					log[source] = {} if log[source].nil?
 					log[source]['state'] = 'new'
@@ -275,13 +286,15 @@ module GritCli
 					grit_info.save_log
 				end
 
+				# Process source in state cloned
 				if 'cloned'.eql?(grit_info.state(source))
+					FileUtils.cd(folder)
 					globs = {}
 					error = false
 					config['analyses'].each{ |analysis|
-						repo = Rugged::Repository.new(folder)
+						repo = Rugged::Repository.new('.')
 						begin
-							obj = Object::const_get(analysis).new(source, folder, repo, config['options'], addons, globs)
+							obj = Object::const_get(analysis).new(source, repo, config['options'], addons, globs)
 							obj.run
 						rescue => e
 							error = true
@@ -295,8 +308,10 @@ module GritCli
 					end
 					grit_info.save_log
 					say_status('[info]', "analyses performed", :blue)
+					FileUtils.cd('..')
 				end
 
+				# Process source in state finished
 				if 'finished'.eql?(grit_info.state(source))
 					say_status('[done]', "source processed")
 				end
@@ -355,9 +370,8 @@ end
 
 class Analysis
 
-	def initialize(source, folder, repo, options, addons, globs)
+	def initialize(source, repo, options, addons, globs)
 		@source = source
-		@folder = folder
 		@repo = repo
 		@options = options
 		@addons = addons
@@ -371,6 +385,6 @@ end
 
 script = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
 folder = File.dirname(script)
-Dir.glob("#{folder}/../includes/*.rb").each{ |script| load(script) }
+Dir.glob("#{folder}/../includes/**/*.rb").each{ |script| load(script) }
 
 GritCli::Grit.start(ARGV)
