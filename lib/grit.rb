@@ -100,19 +100,6 @@ module GritCli
 			grit_info.save_config
 		end
 
-		desc 'info SOURCE', "Gives info on a source"
-		def info(source)
-			color = (grit_info.error?(source) && :red) || :green
-			say_status("[#{grit_info.state(source)}]", "#{source}", color)
-			say_status('[folder]', "#{grit_info.source_folder(source)}", :blue)
-			if grit_info.error?(source)
-				say_status('[error]', "#{log[source]['error']['error']}", :red)
-				say_status('[message]', "#{log[source]['error']['message']}", :red)
-				say_status('[backtrace]', "", :red)
-				say(log[source]['error']['backtrace'].join("\n"))
-			end
-		end
-
 		desc "add [SOURCE*]", "Add sources"
 		def add(*sources)
 			sources.each{ |source|
@@ -245,6 +232,26 @@ module GritCli
 			options = JSON.parse(File.read(file))
 			config['options'] = options
 			grit_info.save_config
+		end
+
+		desc 'info SOURCE', "Gives info on a source"
+		def info(source = nil)
+			if !source.nil?
+				color = (grit_info.error?(source) && :red) || :green
+				say_status("[#{grit_info.state(source)}]", "#{source}", color)
+				say_status('[folder]', "#{grit_info.source_folder(source)}", :blue)
+				if grit_info.error?(source)
+					say_status('[error]', "#{log[source]['error']['error']}", :red)
+					say_status('[message]', "#{log[source]['error']['message']}", :red)
+					say_status('[backtrace]', "", :red)
+					say(log[source]['error']['backtrace'].join("\n"))
+				end
+			else
+				say_status('[sources]', "#{config['sources'].size} sources: #{config['sources'].select{ |s| 'new'.eql?(grit_info.state(s)) }.size} new (#{config['sources'].select{ |s| 'new'.eql?(grit_info.state(s)) && grit_info.error?(s)}.size} errors), #{config['sources'].select{ |s| 'cloned'.eql?(grit_info.state(s)) }.size} cloned (#{config['sources'].select{ |s| 'cloned'.eql?(grit_info.state(s)) && grit_info.error?(s)}.size} errors), #{config['sources'].select{ |s| 'finished'.eql?(grit_info.state(s)) }.size} finished", :blue)
+				say_status('[addons]', "#{config['addons'].join(', ')}", :blue)
+				say_status('[analyses]', "#{config['analyses'].join(', ')}", :blue)
+				say_status('[options]', "#{config['options']}", :blue)
+			end
 		end
 
 		desc 'process', "Process grit folder"
