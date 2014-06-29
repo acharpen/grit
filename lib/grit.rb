@@ -128,13 +128,13 @@ module GritCli
 
 		desc "rem [SOURCE*]", "Remove sources"
 		def rem(*sources)
-			deleted_sources = config['sources'].select{ |source| sources.include?(source) }
+			deleted = config['sources'].select{ |source| sources.include?(source) }
 			config['sources'].delete_if{ |source| sources.include?(source) }
-			deleted_sources.each { |source|
+			deleted.each { |source|
 				FileUtils.rm_rf(grit_info.source_folder(source))
 				say_status('[info]', "removed #{source}", :blue)
 			}
-			say_status('[done]', "removed #{deleted_sources.size} sources, #{sources.size - deleted_sources.size} errors")
+			say_status('[done]', "removed #{deleted.size} sources, #{sources.size - deleted.size} errors")
 			grit_info.save_config
 		end
 	end
@@ -170,17 +170,13 @@ module GritCli
 
 		desc "rem [ADDON*]", "Remove addons"
 		def rem(*addons)
-			init_size = config['addons'].size
+			deleted = config['addons'].select{ |addon| addons.include?(addon) }
 			config['addons'].delete_if{ |addon| addons.include?(addon) }
-			diff_size = init_size - config['addons'].size
-			if diff_size != analyses.size
-				say_status('[warning]', "removed #{diff_size} addons, #{analyses.size - diff_size} errors", :red)
-			else
-				say_status('[done]', "removed #{init_size - config['addon'].size} addons")
-			end
-
+			deleted.each { |addon| say_status('[info]', "removed #{addon}", :blue) }
+			say_status('[done]', "removed #{deleted.size} addons, #{addons.size - deleted.size} errors")
 			grit_info.save_config
 		end
+		
 	end
 
 	class GritAnalyses < Thor
@@ -214,15 +210,10 @@ module GritCli
 
 		desc "rem [ANALYSIS*]", "Remove analyses"
 		def rem(*analyses)
-			init_size = config['analyses'].size
+			deleted = config['analyses'].select{ |analysis| analyses.include?(analysis) }
 			config['analyses'].delete_if{ |analysis| analyses.include?(analysis) }
-			diff_size = init_size - config['analyses'].size
-			if diff_size != analyses.size
-				say_status('[warning]', "removed #{diff_size} analyses, #{analyses.size - diff_size} errors", :red)
-			else
-				say_status('[done]', "removed #{init_size - config['analyses'].size} analyses")
-			end
-
+			deleted.each { |analysis|	say_status('[info]', "removed #{analysis}", :blue) }
+			say_status('[done]', "removed #{deleted.size} analyses, #{analyses.size - deleted.size} errors")
 			grit_info.save_config
 		end
 
