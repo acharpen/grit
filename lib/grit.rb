@@ -247,7 +247,8 @@ module GritCli
 					say(log[source]['error']['backtrace'].join("\n"))
 				end
 			else
-				say_status('[sources]', "#{config['sources'].size} sources: #{config['sources'].select{ |s| 'new'.eql?(grit_info.state(s)) }.size} new (#{config['sources'].select{ |s| 'new'.eql?(grit_info.state(s)) && grit_info.error?(s)}.size} errors), #{config['sources'].select{ |s| 'cloned'.eql?(grit_info.state(s)) }.size} cloned (#{config['sources'].select{ |s| 'cloned'.eql?(grit_info.state(s)) && grit_info.error?(s)}.size} errors), #{config['sources'].select{ |s| 'finished'.eql?(grit_info.state(s)) }.size} finished", :blue)
+				source_color = (config['sources'].select{ |s| grit_info.error?(s) }.size > 0 && :red) || :blue
+				say_status('[sources]', "#{config['sources'].size} sources: #{config['sources'].select{ |s| 'new'.eql?(grit_info.state(s)) }.size} new (#{config['sources'].select{ |s| 'new'.eql?(grit_info.state(s)) && grit_info.error?(s)}.size} errors), #{config['sources'].select{ |s| 'cloned'.eql?(grit_info.state(s)) }.size} cloned (#{config['sources'].select{ |s| 'cloned'.eql?(grit_info.state(s)) && grit_info.error?(s)}.size} errors), #{config['sources'].select{ |s| 'finished'.eql?(grit_info.state(s)) }.size} finished", source_color)
 				say_status('[addons]', "#{config['addons'].join(', ')}", :blue)
 				say_status('[analyses]', "#{config['analyses'].join(', ')}", :blue)
 				say_status('[options]', "#{config['options']}", :blue)
