@@ -390,8 +390,8 @@ class Analysis
 
 end
 
-script = File.symlink?(__FILE__) ? File.readlink(__FILE__) : __FILE__
-folder = File.dirname(script)
-Dir.glob("#{folder}/../includes/**/*.rb").each{ |script| load(script) }
+INCLUDES_FOLDER = File.expand_path('includes',File.expand_path('..',File.dirname(File.realpath(__FILE__))))
+
+Dir.glob("#{INCLUDES_FOLDER}/**/*.rb").each{ |script| load(script) }
 
 GritCli::Grit.start(ARGV)
