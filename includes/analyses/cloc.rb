@@ -5,12 +5,11 @@ require 'yaml'
 class ClocAnalysis < Analysis
 
 	def run
-		cloc = `cloc . --quiet --yaml`
-		if !"".eql?(cloc) then
-			yaml = YAML.load(cloc.lines[3..-1].join)
+		cloc = `cloc . --progress-rate=0 --quiet --yaml`
+		if !"".eql?(cloc)
+			yaml = YAML.load(cloc.lines[2..-1].join)
 			yaml.delete('header')
 			output = { :source => @source, :cloc => yaml }
-
 			col = @addons['db'].db['cloc']
 			col.insert(output)
 		end
