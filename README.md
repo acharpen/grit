@@ -6,11 +6,13 @@ A ruby tool to analyse Git repositories
 
 To use grit you need first to install the development version of [rugged](https://github.com/libgit2/rugged) (ruby libgit's bindings).
 
-To ensure having a rugged installation that can clone repositories through SSL, please use the following procedure. First checks if you have cmake and openssl installed on your system. Then perform the following commands.
+To ensure having a rugged installation that can clone repositories through SSL, please use the following procedure. First checks if you have cmake and openssl (including development headers) installed on your system. Then, perform the following commands.
 
 ```
 git clone https://github.com/libgit2/rugged.git
-git submodule foreach git pull
+cd rugged
+git submodule init
+git submodule update
 gem build rugged.gemspec
 gem install rugged-0.19.0.gem
 ```
