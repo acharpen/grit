@@ -282,7 +282,7 @@ module GritCli
 
 				# Process source in state new
 				if grit_info.state(source) == :new
-					log[source] = {} if log[source].nil?
+					log[source] ||= {}
 					log[source]['state'] = :new
 					error = false
 					begin
