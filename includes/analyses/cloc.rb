@@ -9,8 +9,8 @@ class ClocAnalysis < Analysis
 		unless cloc.empty?
 			yaml = YAML.load(cloc.lines[2..-1].join)
 			yaml.delete('header')
-			output = { :source => @source, :cloc => yaml }
-			col = @addons['db'].db['cloc']
+			output = { source: @source, cloc: yaml }
+			col = @addons[:db].db['cloc']
 			col.insert(output)
 		end
 	end

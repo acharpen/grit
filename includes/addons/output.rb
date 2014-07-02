@@ -6,12 +6,12 @@ class Output < Addon
 
 	def initialize(*args)
 		super
-		@folder = File.absolute_path(@options['output'])
-		FileUtils.mkdir_p(@folder) if !File.exist?(@folder)
+		@folder = File.absolute_path(@options[:output])
+		FileUtils.mkdir_p(@folder) unless File.exist?(@folder)
 	end
 
 	def name
-		'output'
+		:output
 	end
 
 end

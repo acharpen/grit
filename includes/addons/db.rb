@@ -8,11 +8,11 @@ class Db < Addon
 	def initialize(*args)
 		super
 		client = Mongo::MongoClient.new
-		@db = client[@options['mongo']['database']]
+		@db = client[@options[:mongo][:database]]
 	end
 
 	def name
-		'db'
+		:db
 	end
 
 end
