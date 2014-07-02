@@ -225,7 +225,7 @@ module GritCli
 		end
 
 		desc "init", "Init grit folder"
-		def init()
+		def init
 			config = { sources: [], analyses: [], addons: [], options: {} }
 			grit_info.config = config
 			grit_info.save_config
@@ -357,13 +357,13 @@ module GritCli
 			say_status('[done]', "cleared finished sources")
 		end
 
-		desc "sources SUBCOMMAND ...ARGS", "manage the analyses for this grit folder."
+		desc "sources SUBCOMMAND ...ARGS", "manage the sources for this grit folder."
 		subcommand "sources", GritSources
 
 		desc "analyses SUBCOMMAND ...ARGS", "manage the analyses for this grit folder."
 		subcommand "analyses", GritAnalyses
 
-		desc "addons SUBCOMMAND ...ARGS", "manage the analyses for this grit folder."
+		desc "addons SUBCOMMAND ...ARGS", "manage the addons for this grit folder."
 		subcommand "addons", GritAddons
 
 	end
