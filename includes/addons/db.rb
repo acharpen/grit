@@ -1,7 +1,7 @@
 # encoding: utf-8
 require 'mongo'
 
-class Db < Addon
+class Db < GritAddon
 
 	attr_reader :db
 

@@ -2,7 +2,7 @@
 
 require 'yaml'
 
-class ClocAnalysis < Analysis
+class ClocAnalysis < GritAnalysis
 
 	def run
 		cloc = `cloc . --progress-rate=0 --quiet --yaml`

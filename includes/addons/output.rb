@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-class Output < Addon
+class Output < GritAddon
 
 	attr_reader :folder
 

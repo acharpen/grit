@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-class AuthorAnalysis < Analysis
+class AuthorAnalysis < GritAnalysis
 
 	def run
 		walker = Rugged::Walker.new(@repo)

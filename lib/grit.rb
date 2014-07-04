@@ -7,7 +7,7 @@ require 'thor'
 require 'fileutils'
 require 'singleton'
 
-module GritCli
+module Grit
 	GRITRC = '.gritrc'
 	GRITLOG = '.gritlog'
 
@@ -16,29 +16,6 @@ module GritCli
 	WARNING = '[warning]'
 	ERROR = '[error]'
 	INFO = '[info]'
-
-	module GritCliUtils
-
-		def config
-			return GritInfo.instance.config
-		end
-
-		def log
-			return GritInfo.instance.log
-		end
-
-		def grit_info
-			return GritInfo.instance
-		end
-
-		def class_exist?(class_name)
-			obj = Object::const_get(class_name)
-			return obj.is_a?(Class)
-		rescue NameError
-			return false
-		end
-
-	end
 
 	class GritInfo
 		include Singleton
@@ -51,14 +28,6 @@ module GritCli
 			@log = load_log
 		end
 
-		def load_log
-			(File.exist?(GRITLOG) && JSON.parse(File.read(GRITLOG))) || {}
-		end
-
-		def save_log
-			File.write(GRITLOG, JSON.pretty_generate(@log))
-		end
-
 		def load_config
 			(File.exist?(GRITRC) && JSON.parse(File.read(GRITRC), {symbolize_names: true})) || {}
 		end
@@ -67,12 +36,42 @@ module GritCli
 			File.write(GRITRC, JSON.pretty_generate(@config))
 		end
 
+		def load_log
+			(File.exist?(GRITLOG) && JSON.parse(File.read(GRITLOG))) || {}
+		end
+
+		def save_log
+			File.write(GRITLOG, JSON.pretty_generate(@log))
+		end
+	end
+
+	module GritUtils
+		def grit_info
+			return GritInfo.instance
+		end
+
+		def config
+			return grit_info.config
+		end
+
+		def log
+			return grit_info.log
+		end
+
+		def sources
+			return config[:sources]
+		end
+
+		def error?(source)
+			!(log[source].nil? || log[source]['error'].nil?)
+		end
+
 		def state(source)
 			(log[source].nil? && :new) || log[source]['state'].to_sym
 		end
 
-		def error?(source)
-			log[source].nil? || !log[source]['error'].nil?
+		def erroneous_sources
+			return sources.select { |source| error?(source) }
 		end
 
 		def add_error(source, e)
@@ -83,35 +82,49 @@ module GritCli
 			'source_' << source.gsub('://','_').gsub('/','_').gsub('?','_').gsub('&','_').gsub('.','_')
 		end
 
+		def addons
+			return config[:addons]
+		end
+
+		def analyses
+			return config[:analyses]
+		end
+
+		def class_exist?(class_name)
+			obj = Object::const_get(class_name)
+			return obj.is_a?(Class)
+		rescue NameError
+			return false
+		end
 	end
 
-	class GritSources < Thor
+	class GritSourcesCli < Thor
 		include Thor::Actions
-		include GritCliUtils
+		include GritUtils
 
 		desc 'list', "List sources"
 		def list
-			config[:sources].each do |source|
-				color = (grit_info.error?(source) && :red) || :blue
-				say_status("[#{grit_info.state(source)}]", source, color)
+			sources.each do |source|
+				color = (error?(source) && :red) || :blue
+				say_status("[#{state(source)}]", source, color)
 			end
-			status = (config[:sources].select{ |source| grit_info.error?(source) }.size == 0 && DONE) || ERROR
+			status = (erroneous_sources.size == 0 && DONE) || ERROR
 			color = (status == DONE && :green) || :red
-			say_status(status, "listed #{config[:sources].size} sources including #{config[:sources].select{ |source| grit_info.error?(source) }.size} errors", color)
+			say_status(status, "listed #{sources.size} sources including #{erroneous_sources.size} errors", color)
 		end
 
 		desc 'import [FILE]', "Import sources from a file"
 		def import(urls_file)
-			config[:sources] = IO.readlines(urls_file).collect{ |line| line.strip }
+			sources << IO.readlines(urls_file).collect{ |line| line.strip }
 			say_status(INFO, "imported #{config['sources'].size} sources", :blue)
 			grit_info.save_config
 		end
 
 		desc "add [SOURCE*]", "Add sources"
-		def add(*sources)
-			sources.each do |source|
-				unless config[:sources].include?(source)
-						config[:sources] << source
+		def add(*selected_sources)
+			selected_sources.each do |source|
+				unless sources.include?(source)
+						sources << source
 						say_status(DONE, "added source #{source}")
 				else
 						say_status(WARNING, "source #{source} already included", :red)
@@ -121,34 +134,34 @@ module GritCli
 		end
 
 		desc "rem [SOURCE*]", "Remove sources"
-		def rem(*sources)
-			deleted = config[:sources].select{ |source| sources.include?(source) }
-			config[:sources].delete_if{ |source| sources.include?(source) }
+		def rem(*selected_sources)
+			deleted = sources.select{ |source| selected_sources.include?(source) }
+			sources.delete_if{ |source| selected_sources.include?(source) }
 			deleted.each do |source|
-				FileUtils.rm_rf(grit_info.source_folder(source))
+				FileUtils.rm_rf(source_folder(source))
 				say_status(INFO, "removed #{source}", :blue)
 			end
-			say_status(DONE, "removed #{deleted.size} sources, #{sources.size - deleted.size} errors")
+			say_status(DONE, "removed #{deleted.size} sources, #{selected_sources.size - deleted.size} errors")
 			grit_info.save_config
 		end
 	end
 
-	class GritAddons < Thor
+	class GritAddonsCli < Thor
 		include Thor::Actions
-		include GritCliUtils
+		include GritUtils
 
 		desc 'list', "List addons"
 		def list
-			config[:addons].each{ |addon| say_status(INFO, addon, :blue) }
+			addons.each{ |addon| say_status(INFO, addon, :blue) }
 			say_status(DONE, "listed #{config['addons'].size} addons")
 		end
 
 		desc "add [ADDON*]", "Add addons"
-		def add(*addons)
-			addons.each do |addon|
+		def add(*selected_addons)
+			selected_addons.each do |addon|
 				if class_exist?(addon)
-					unless config[:addons].include?(addon)
-						config[:addons] << addon
+					unless addons.include?(addon)
+						addons << addon
 						say_status(DONE, "added addon #{addon}")
 					else
 						say_status(WARNING, "addon #{addon} already included", :red)
@@ -161,32 +174,32 @@ module GritCli
 		end
 
 		desc "rem [ADDON*]", "Remove addons"
-		def rem(*addons)
-			deleted = config[:addons].select{ |addon| addons.include?(addon) }
-			config[:addons].delete_if{ |addon| addons.include?(addon) }
+		def rem(*selected_addons)
+			deleted = addons.select{ |addon| selected_addons.include?(addon) }
+			addons.delete_if{ |addon| selected_addons.include?(addon) }
 			deleted.each { |addon| say_status(INFO, "removed #{addon}", :blue) }
-			say_status(DONE, "removed #{deleted.size} addons, #{addons.size - deleted.size} errors")
+			say_status(DONE, "removed #{deleted.size} addons, #{selected_addons.size - deleted.size} errors")
 			grit_info.save_config
 		end
 
 	end
 
-	class GritAnalyses < Thor
+	class GritAnalysesCli < Thor
 		include Thor::Actions
-		include GritCliUtils
+		include GritUtils
 
 		desc 'list', "List analyses"
 		def list
-			config[:analyses].each{ |analysis| say_status(INFO, analysis, :blue) }
+			analyses.each{ |analysis| say_status(INFO, analysis, :blue) }
 			say_status(DONE, "listed #{config[:analyses].size} analyses")
 		end
 
 		desc "add [ANALYSIS*]", "Add analyses"
-		def add(*analyses)
-			analyses.each do |analysis|
+		def add(*selected_analyses)
+			selected_analyses.each do |analysis|
 				if class_exist?(analysis)
-					unless config[:analyses].include?(analysis)
-						config[:analyses] << analysis
+					unless analyses.include?(analysis)
+						analyses << analysis
 						say_status(DONE, "added analysis #{analysis}")
 					else
 						say_status(WARNING, "analysis #{analysis} already included", :red)
@@ -199,19 +212,19 @@ module GritCli
 		end
 
 		desc "rem [ANALYSIS*]", "Remove analyses"
-		def rem(*analyses)
-			deleted = config[:analyses].select{ |analysis| analyses.include?(analysis) }
-			config[:analyses].delete_if{ |analysis| analyses.include?(analysis) }
+		def rem(*selected_analyses)
+			deleted = analyses.select{ |analysis| selected_analyses.include?(analysis) }
+			analyses.delete_if{ |analysis| selected_analyses.include?(analysis) }
 			deleted.each { |analysis|	say_status(INFO, "removed #{analysis}", :blue) }
-			say_status(DONE, "removed #{deleted.size} analyses, #{analyses.size - deleted.size} errors")
+			say_status(DONE, "removed #{deleted.size} analyses, #{selected_analyses.size - deleted.size} errors")
 			grit_info.save_config
 		end
 
 	end
 
-	class Grit < Thor
+	class GritCli < Thor
 		include Thor::Actions
-		include GritCliUtils
+		include GritUtils
 
 		def initialize(*args)
 			super
@@ -240,20 +253,20 @@ module GritCli
 		desc 'info SOURCE', "Gives info on a source"
 		def info(source = nil)
 			unless source.nil?
-				color = (grit_info.error?(source) && :red) || :green
-				say_status("[#{grit_info.state(source)}]", "#{source}", color)
-				say_status('[folder]', "#{grit_info.source_folder(source)}", :blue)
-				if grit_info.error?(source)
+				color = (error?(source) && :red) || :green
+				say_status("[#{state(source)}]", "#{source}", color)
+				say_status('[folder]', "#{source_folder(source)}", :blue)
+				if error?(source)
 					say_status(ERROR, "#{log[source]['error']['error']}", :red)
 					say_status('[message]', "#{log[source]['error']['message']}", :red)
 					say_status('[backtrace]', "", :red)
 					say(log[source]['error']['backtrace'].join("\n"))
 				end
 			else
-				source_color = (config[:sources].select{ |s| grit_info.error?(s) }.size > 0 && :red) || :blue
-				say_status('[sources]', "#{config[:sources].size} sources: #{config[:sources].select{ |s| 'new'.eql?(grit_info.state(s)) }.size} new (#{config[:sources].select{ |s| 'new'.eql?(grit_info.state(s)) && grit_info.error?(s)}.size} errors), #{config[:sources].select{ |s| :cloned == grit_info.state(s) }.size} cloned (#{config[:sources].select{ |s| :cloned == grit_info.state(s) && grit_info.error?(s)}.size} errors), #{config[:sources].select{ |s| :finished == grit_info.state(s) }.size} finished", source_color)
-				say_status('[addons]', "#{config[:addons].join(', ')}", :blue)
-				say_status('[analyses]', "#{config[:analyses].join(', ')}", :blue)
+				color = (erroneous_sources.size > 0 && :red) || :blue
+				say_status('[sources]', "#{sources.size} sources: #{sources.select{ |s| state(s) == :new}.size} new (#{erroneous_sources.select{ |s| state(s) == :new }.size} errors), #{sources.select{ |s| state(s) == :cloned}.size } cloned (#{ erroneous_sources.select{ |s| state(s) == :cloned }.size} errors), #{sources.select{ |s| state(s) == :finished }.size} finished", color)
+				say_status('[addons]', "#{addons.join(', ')}", :blue)
+				say_status('[analyses]', "#{analyses.join(', ')}", :blue)
 				say_status('[options]', "#{config[:options]}", :blue)
 			end
 		end
@@ -261,32 +274,32 @@ module GritCli
 		desc 'process', "Process grit folder"
 		def process
 			# Loading addons
-			addons = {}
-			config[:addons].each{ |addon|
+			loaded_addons = {}
+			addons.each do |addon|
 				begin
 					obj = Object::const_get(addon).new(config[:options])
-					addons[obj.name] = obj
+					loaded_addons[obj.name] = obj
 				rescue => e
 					say_status(ERROR, "error loading addon #{addon}", :red)
 					raise e
 				end
-			}
+			end
 			say_status(INFO, "loaded addons", :blue)
 
 			#Processing sources
-			config[:sources].each do |source|
-				folder = grit_info.source_folder(source)
+			sources.each do |source|
+				folder = source_folder(source)
 				say_status(PENDING, "processing #{source}", :yellow)
 
 				# Process source in state new
-				if grit_info.state(source) == :new
+				if state(source) == :new
 					log[source] ||= {}
 					log[source]['state'] = :new
 					begin
 						Rugged::Repository::clone_at(source, folder)
 					rescue => e
 						error = true
-						grit_info.add_error(source, e)
+						add_error(source, e)
 						say_status(ERROR, "error cloning source", :red)
 					else
 						log[source]['state'] = :cloned
@@ -295,21 +308,21 @@ module GritCli
 				end
 
 				# Process source in state cloned
-				if grit_info.state(source) == :cloned
+				if state(source) == :cloned
 					FileUtils.cd(folder)
 					globs = {}
-					analyses = []
+					performed_analyses = []
 					begin
 						repo = Rugged::Repository.new('.')
-						config[:analyses].each do |analysis|
-							analyses << analysis
-							obj = Object::const_get(analysis).new(source, repo, config[:options], addons, globs)
+						analyses.each do |analysis|
+							performed_analyses << analysis
+							obj = Object::const_get(analysis).new(source, repo, config[:options], loaded_addons, globs)
 							obj.run
 						end
 					rescue => e
-						grit_info.add_error(source, e)
-						log[source]['error']['analyses'] = analyses[1..-2]
-						say_status(ERROR, "error running #{analyses.last} analysis", :red)
+						add_error(source, e)
+						log[source]['error']['analyses'] = performed_analyses[1..-2]
+						say_status(ERROR, "error running #{performed_analyses.last} analysis", :red)
 					else
 						log[source]['state'] = :finished
 						log[source].delete('error')
@@ -319,7 +332,7 @@ module GritCli
 				end
 
 				# Process source in state finished
-				if grit_info.state(source) == :finished
+				if state(source) == :finished
 					say_status(DONE, "source processed")
 				end
 			end
@@ -328,10 +341,10 @@ module GritCli
 		end
 
 		desc 'reset [SOURCES*]', "Reset grit folder"
-		def reset(*sources)
-			config[:sources].each do |source|
-				if sources.empty? || sources.include?(source)
-					FileUtils.rm_rf(grit_info.source_folder(source))
+		def reset(*selected_sources)
+			sources.each do |source|
+				if selected_sources.empty? || selected_sources.include?(source)
+					FileUtils.rm_rf(source_folder(source))
 					log.delete(source)
 					say_status(INFO, "resetted #{source}", :blue)
 				end
@@ -341,9 +354,9 @@ module GritCli
 		end
 
 		desc 'clear [SOURCES*]', "Clear grit folder"
-		def clear(*sources)
-			config[:sources].each do |source|
-				if grit_info.state(source) == :finished && (sources.empty? || sources.include?(source))
+		def clear(*selected_sources)
+			sources.each do |source|
+				if state(source) == :finished && (selected_sources.empty? || selected_sources.include?(source))
 					log[source]['state'] = :cloned
 					log[source].delete('error')
 					say_status(INFO, "cleared #{source}", :blue)
@@ -353,20 +366,20 @@ module GritCli
 			say_status(DONE, "cleared finished sources")
 		end
 
-		desc "sources SUBCOMMAND ...ARGS", "manage the sources for this grit folder."
-		subcommand "sources", GritSources
+		desc "source SUBCOMMAND ...ARGS", "manage the sources for this grit folder."
+		subcommand "source", GritSourcesCli
 
-		desc "analyses SUBCOMMAND ...ARGS", "manage the analyses for this grit folder."
-		subcommand "analyses", GritAnalyses
+		desc "analysis SUBCOMMAND ...ARGS", "manage the analyses for this grit folder."
+		subcommand "analysis", GritAnalysesCli
 
-		desc "addons SUBCOMMAND ...ARGS", "manage the addons for this grit folder."
-		subcommand "addons", GritAddons
+		desc "addon SUBCOMMAND ...ARGS", "manage the addons for this grit folder."
+		subcommand "addon", GritAddonsCli
 
 	end
 
 end
 
-class Addon
+class GritAddon
 
 	def initialize(options)
 		@options = options
@@ -377,7 +390,7 @@ class Addon
 
 end
 
-class Analysis
+class GritAnalysis
 
 	def initialize(source, repo, options, addons, globs)
 		@source = source
@@ -397,4 +410,4 @@ INCLUDES_FOLDER = File.expand_path(INCLUDES,File.expand_path('..',File.dirname(F
 
 Dir.glob("#{INCLUDES_FOLDER}/**/*.rb").each{ |script| load(script) }
 
-GritCli::Grit.start(ARGV)
+Grit::GritCli.start(ARGV)
