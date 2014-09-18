@@ -115,8 +115,17 @@ module Grit
 
 		desc 'import [FILE]', "Import sources from a file"
 		def import(urls_file)
-			sources << IO.readlines(urls_file).collect{ |line| line.strip }
-			say_status(INFO, "imported #{config['sources'].size} sources", :blue)
+			imported = 0
+			IO.readlines(urls_file).each do |line|
+				source = line.strip 
+				unless sources.include?(source)
+						sources << source
+						imported += 1
+				else
+						say_status(WARNING, "source #{source} already included", :red)
+				end
+			end
+			say_status(INFO, "imported #{imported} sources", :blue)
 			grit_info.save_config
 		end
 
