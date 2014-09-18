@@ -336,7 +336,8 @@ module Grit
 					say_status(DONE, "source processed")
 				end
 			end
-
+			
+		ensure
 			grit_info.save_log
 		end
 
